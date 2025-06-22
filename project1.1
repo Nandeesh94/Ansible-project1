@@ -1,0 +1,165 @@
+
+- hosts: dev[1]
+  become: yes
+
+  vars:
+    a: git
+    b: maven
+    c: docker
+    d: python3
+    e: python3-pip
+    f: bandit
+    g: started
+    h: "https://github.com/aquasecurity/trivy/releases/download/v0.63.0/trivy_0.63.0_Linux-64bit.rpm"
+    i: /tmp/trivy.rpm
+    j: nginx:latest
+    k: /opt/myapp
+
+    l: "9.0.106"
+    m: "https://dlcdn.apache.org/tomcat/tomcat-9/v9.0.106/bin/apache-tomcat-9.0.106.tar.gz"
+    n: "/root/apache-tomcat-{{ l }}.tar.gz"
+    o: "/root/tomcat"
+    p: "java-1.8.0-openjdk"
+    q: "sha512:0b316af119fd9a69761c20bc7f9959513884002fc60f490af6335380a3a62549777bf35a1e8dd3c448e56da8ddcb9dc2301d3b01bba304537ca40456c650c25a"
+    r: httpd
+
+  tasks:
+    - name: install {{a}}
+      yum: name={{ a }} state=present
+      tags: ["1"]
+
+    - name: install {{ b }}
+      yum: name={{ b }} state=present
+      tags: ["2"]
+
+    - name: install {{ c }}
+      yum: name={{ c }} state=present
+      tags: ["3"]
+
+    - name: install {{ d }}
+      yum: name={{ d }} state=present
+      tags: ["4"]
+
+    - name: install {{ e }}
+      yum: name={{ e }} state=present
+      tags: ["5"]
+
+    - name: enable and start the docker
+      systemd:
+        name: "{{ c }}"
+        enabled: yes
+        state: "{{ g }}"
+      tags: ["6"]
+
+    - name: add the user to group
+      user:
+        name: "{{ ansible_env.USER }}"
+        groups: "{{ c }}"
+        append: yes
+      tags: ["7"]
+
+    - name: install {{ f }}
+      pip:
+        name: "{{ f }} "
+        executable: pip3
+      tags: ["8"]
+
+    - name: download trivy
+      get_url:
+        url: "{{ h }}"
+        dest: "{{ i }}"
+      tags: ["9"]
+
+    - name: install trivy
+      yum: name={{ i }} state=present
+      tags: ["10"]
+
+    - name: run bandit scan
+      shell: /usr/local/bin/bandit -r {{ k }}
+      register: bandit_scan_report
+      ignore_errors: yes
+      tags: ["11"]
+
+    - name:  show bandit results
+      debug:
+        var: bandit_scan_report.stdout_lines
+      tags: ["12"]
+
+    - name: run trivy scan on docker image
+      shell: trivy image {{ j }}
+      register: trivy_scan_report
+      ignore_errors: yes
+      tags: ["13"]
+
+    - name: show the trivy result
+      debug:
+        var: trivy_scan_report.stdout_lines
+      tags: ["14"]
+
+    - name: install java
+      yum: name={{ p }} state=present
+      tags: ["15"]
+
+    - name: download tomcat archive
+      get_url:
+        url: "{{ m }}"
+        dest: "{{ n }}"
+        checksum: "{{ q }}"
+      register: tomcat_report
+      tags: ["16"]
+
+    - name: extract tomcat
+      unarchive:
+        src: "{{ n }}"
+        dest: "/root/"
+        remote_src: yes
+#       when: tomcat_report.changed
+      tags: ["17"]
+
+    - name: ensure remove old tomcat folder if exists
+      file:
+        path: "{{ o }}"
+        state: absent
+      tags: ["17a"]
+
+    - name: rename the tomcat folder
+      command: mv /root/apache-tomcat-{{ l }} {{ o }}
+      args:
+        creates: "{{ o }}"
+      tags: ["18"]
+
+    - name: configure tomcat-users.xml file
+      template:
+        src: tomcat-users.xml
+        dest: "{{ o }}/conf/tomcat-users.xml"
+        mode: '0640'
+      tags: ["19"]
+
+    - name: configure 2lines deleted context.xml
+      template:
+        src: context.xml
+        dest: "{{ o }}/webapps/manager/META-INF/context.xml"
+        mode: '0640'
+      tags: ["20"]
+
+    - name: start tomcat with nohup
+      shell: nohup {{ o }}/bin/startup.sh &
+      args:
+        chdir: "{{ o }}/bin"
+      environment:
+        CATALINA_HOME: "{{ o }}"
+      tags: ["21"]
+
+    - name: installing {{ r }}
+      yum: name={{ r }} state=present
+      tags: ["22"]
+
+    - name: starting httpd
+      service: name={{ r }} state={{ g }}
+      tags: ["23"]
+
+    - name: git checkout
+      git:
+        repo: "https://github.com/CleverProgrammers/pwj-netflix-clone.git"
+        dest: "/var/www/html"
+        force: yes
