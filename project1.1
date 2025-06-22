@@ -1,5 +1,5 @@
 
-- hosts: dev[1]
+- hosts: test[0]
   become: yes
 
   vars:
@@ -163,3 +163,80 @@
         repo: "https://github.com/CleverProgrammers/pwj-netflix-clone.git"
         dest: "/var/www/html"
         force: yes
+----------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Ideal for long-term maintenance and production structure.
+Structure:
+
+production-playbook/
+├── site.yml
+├── roles/
+│   ├── common/
+│   │   └── tasks/main.yml         # git, maven, docker, python3, pip3, user group
+│   ├── security/
+│   │   └── tasks/main.yml         # bandit, trivy setup, scan steps
+│   ├── tomcat/
+│   │   ├── tasks/main.yml         # java, tomcat download, extract, config
+│   │   ├── templates/
+│   │   │   ├── tomcat-users.xml
+│   │   │   └── context.xml
+│   ├── frontend/
+│   │   └── tasks/main.yml         # httpd, git clone
+│   └── notify/
+│       └── tasks/main.yml         # rollback, email/slack on failure
+
+
+✅ Step-by-Step Terminal Commands
+1. 🛠 Create base folder
+mkdir -p production-playbook
+cd production-playbook
+
+2. 📄 Create site.yml (main playbook)
+touch site.yml
+You can paste this starter content later:
+Then, site.yml looks clean:
+---
+- hosts: dev[1]
+  become: yes
+  roles:
+    - common
+    - security
+    - tomcat
+    - frontend
+    - notify
+
+3. 📁 Create roles and subfolders
+mkdir -p roles/{common,security,tomcat,frontend,notify}/tasks
+mkdir -p roles/tomcat/templates
+This will create:
+roles/
+├── common/tasks/
+├── security/tasks/
+├── tomcat/tasks/
+├── tomcat/templates/
+├── frontend/tasks/
+├── notify/tasks/
+
+4. 📄 Create main.yml in each tasks folder
+touch roles/common/tasks/main.yml
+touch roles/security/tasks/main.yml
+touch roles/tomcat/tasks/main.yml
+touch roles/frontend/tasks/main.yml
+touch roles/notify/tasks/main.yml
+
+5. 📄 Create template files for Tomcat
+touch roles/tomcat/templates/tomcat-users.xml
+touch roles/tomcat/templates/context.xml
+
+✅ Final Directory Structure
+You can confirm the structure by running:
+tree production-playbook
+
+
+✅ Optional: Initialize Git
+If you're managing this project with Git:
+git init
+git add .
+git commit -m "Initial Ansible DevSecOps playbook structure"
+
+
