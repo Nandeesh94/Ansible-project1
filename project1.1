@@ -240,3 +240,122 @@ git add .
 git commit -m "Initial Ansible DevSecOps playbook structure"
 
 
+
+
+✅ What You Have Now
+bash
+Copy
+Edit
+production-playbook/
+├── site.yml                     # Entry playbook
+└── roles/
+    ├── common/                 # git, maven, docker, python3, pip3
+    ├── security/               # bandit, trivy, scan logic
+    ├── tomcat/                 # java, tomcat setup
+    │   └── templates/          # config XMLs
+    ├── frontend/               # httpd + UI clone
+    └── notify/                 # rollback + alerts (email/slack)
+
+📌 Next Recommended Steps
+1. Add tasks to site.yml
+yaml
+Copy
+Edit
+- name: Production DevSecOps Deployment
+  hosts: all
+  become: yes
+  roles:
+    - common
+    - security
+    - tomcat
+    - frontend
+    - notify
+    
+2. Add Task Examples
+🔧 roles/common/tasks/main.yml
+- name: Install basic tools
+  package:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - git
+    - maven
+    - docker
+    - python3
+    - python3-pip
+
+- name: Add user to docker group
+  user:
+    name: ansible
+    groups: docker
+    append: yes
+    
+🔐 roles/security/tasks/main.yml
+- name: Install Bandit
+  pip:
+    name: bandit
+
+- name: Install Trivy
+  get_url:
+    url: "https://github.com/aquasecurity/trivy/releases/download/v0.51.1/trivy_0.51.1_Linux-64bit.rpm"
+    dest: /tmp/trivy.rpm
+
+- name: Install Trivy package
+  yum:
+    name: /tmp/trivy.rpm
+    state: present
+    
+🐱‍💻 roles/tomcat/tasks/main.yml
+- name: Install Java
+  package:
+    name: java-1.8.0-openjdk
+    state: present
+
+- name: Download Tomcat
+  get_url:
+    url: "https://downloads.apache.org/tomcat/tomcat-9/v9.0.89/bin/apache-tomcat-9.0.89.tar.gz"
+    dest: /opt/tomcat.tar.gz
+
+- name: Extract Tomcat
+  unarchive:
+    src: /opt/tomcat.tar.gz
+    dest: /opt/
+    remote_src: yes
+
+- name: Deploy tomcat-users.xml
+  template:
+    src: tomcat-users.xml
+    dest: /opt/apache-tomcat-9.0.89/conf/tomcat-users.xml
+    
+🌐 roles/frontend/tasks/main.yml
+- name: Install httpd
+  package:
+    name: httpd
+    state: present
+
+- name: Clone frontend code
+  git:
+    repo: https://github.com/example/frontend-ui.git
+    dest: /var/www/html/
+    
+🚨 roles/notify/tasks/main.yml
+- name: Send Slack notification
+  uri:
+    url: "{{ slack_webhook_url }}"
+    method: POST
+    headers:
+      Content-Type: "application/json"
+    body: '{"text": "Deployment completed or failed"}'
+    body_format: json
+  when: notify_on_failure | default(true)
+  
+🛡️ Optional: Enable Ansible Vault
+mkdir -p group_vars/all
+ansible-vault create group_vars/all/vault.yml
+Inside:
+slack_webhook_url: "https://hooks.slack.com/services/XXX/YYY/ZZZ"
+
+Use with:
+ansible-playbook site.yml --ask-vault-pass
+
+
