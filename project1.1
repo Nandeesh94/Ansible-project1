@@ -158,11 +158,52 @@
       service: name={{ r }} state={{ g }}
       tags: ["23"]
 
-    - name: git checkout
-      git:
-        repo: "https://github.com/CleverProgrammers/pwj-netflix-clone.git"
-        dest: "/var/www/html"
-        force: yes
+    - name: deploy apllication and notify
+      block:
+        - name: git checkout
+          git:
+            repo: "https://github.com/CleverProgrammers/pwj-netflix-clone.git"
+            dest: "/var/www/html"
+            force: yes
+          tags: ["24"]
+
+        - name: Deploy war file to tomcat root path
+          copy:
+            src: myapp.war
+            dest: "{{ o }}/webapps/ROOT.war"
+            mode: 0644
+          tags: ["25"]
+
+            #        - name: Restart tomcat after war deployment
+            #shell: pkill -f tomcat &&nohup {{ o }}/bin/startup.sh &
+            #args:
+            #chdir: "{{ o }}/bin"
+            #environment:
+            #CATALINA_HOME: "{{ o }}"
+            # tags: ["26"]
+
+        - name: send slack notifications on success
+          uri:
+            url: "{{ s }}"
+            method: POST
+            headers:
+              content-type: "application/json"
+            body: '{"text": "deployment successfully completed"}'
+            body_format: json
+
+      rescue:
+        - name: rollback tomcat server (stop server)
+          shell: pkill -f tomcat || true
+
+        - name: send slack notification on failure
+          uri:
+            url: "{{ s }}"
+            method: POST
+            headers:
+              content-type: "application/json"
+            body: '{"text": "deployment failed. Rollback initiated."}'
+            body_format: json
+
 ----------------------------------------------------------------------------------------------------------------------------------------------------------
 
 Ideal for long-term maintenance and production structure.
